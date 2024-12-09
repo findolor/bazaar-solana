@@ -167,6 +167,64 @@ describe("bazaar-solana", () => {
     assert.equal(recipientBalance.amount.toString(), "1000200000"); // 1000000 + 200000
   });
 
+  it("Emits correct payment event data", async () => {
+    const orderId = new anchor.BN(8);
+    const amounts = [new anchor.BN(300000), new anchor.BN(200000)];
+    const recipients = [recipient2.publicKey, recipient3.publicKey];
+    
+    type PaymentEvent = {
+      orderId: anchor.BN;
+      amounts: anchor.BN[];
+      recipients: PublicKey[];
+      timestamp: anchor.BN;
+    };
+
+    let listener: number;
+    const eventPromise = new Promise<PaymentEvent>((resolve) => {
+      listener = program.addEventListener("paymentProcessedEvent", (event, slot) => {
+        resolve(event as PaymentEvent);
+      });
+    });
+
+    // Cleanup listener after we're done
+    try {
+      // Process the payment
+      await program.methods
+        .processPayment(orderId, amounts, recipients)
+        .accounts({
+          payer: recipient1.publicKey,
+          payerTokenAccount: recipient1TokenAccount,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
+        })
+        .remainingAccounts([
+          { pubkey: recipient2TokenAccount, isWritable: true, isSigner: false },
+          { pubkey: recipient3TokenAccount, isWritable: true, isSigner: false },
+        ])
+        .signers([recipient1])
+        .rpc();
+
+      // Wait for and get the event
+      const paymentEvent = await eventPromise;
+      
+      // Verify event data
+      assert.ok(paymentEvent, "Event should be emitted");
+      assert.ok(paymentEvent.orderId.eq(orderId), "Order ID should match");
+      assert.deepEqual(
+        paymentEvent.amounts.map(a => a.toString()),
+        amounts.map(a => a.toString()),
+        "Amounts should match"
+      );
+      assert.deepEqual(
+        paymentEvent.recipients.map(r => r.toBase58()),
+        recipients.map(r => r.toBase58()),
+        "Recipients should match"
+      );
+      assert.ok(paymentEvent.timestamp.toNumber() > 0, "Timestamp should be positive");
+    } finally {
+      program.removeEventListener(listener);
+    }
+  });
+
   it("Fails when amounts and recipients length mismatch", async () => {
     try {
       await program.methods

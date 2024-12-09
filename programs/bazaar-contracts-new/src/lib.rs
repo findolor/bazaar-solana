@@ -7,8 +7,13 @@ use anchor_spl::{
 
 declare_id!("HQjuoD77heYfGMqArVubqoYd9yWozPk6nrSB2MvugKiB");
 
-// PYUSD mint address
-// TODO: current address is for testing, change to PYUSD mint address
+// PYUSD mint address - devnet
+// pub const MINT_ADDRESS: Pubkey = pubkey!("CXk2AMBfi3TwaEL2468s6zP8xq9NxTXjp9gjMgzeUynM");
+
+// PYUSD mint address - mainnet
+// pub const MINT_ADDRESS: Pubkey = pubkey!("9L211111111111111111111111111111111111111");
+
+// PYUSD mint address - localhost
 pub const MINT_ADDRESS: Pubkey = pubkey!("6c5r5bLXihK2DTKGaPb7Wur9ZhzTD5LbJ1pxHBBbTBMQ");
 pub const MAX_RECIPIENTS: usize = 15;
 
@@ -100,6 +105,9 @@ pub mod bazaar_solana {
         emit!(PaymentProcessedEvent {
             order_id,
             hash: hash_result,
+            amounts,
+            recipients,
+            timestamp: Clock::get()?.unix_timestamp,
         });
 
         Ok(())
@@ -148,6 +156,9 @@ pub struct Order {
 pub struct PaymentProcessedEvent {
     pub order_id: u64,
     pub hash: [u8; 32],
+    pub amounts: Vec<u64>,
+    pub recipients: Vec<Pubkey>,
+    pub timestamp: i64,
 }
 
 #[error_code]
